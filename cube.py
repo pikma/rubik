@@ -28,11 +28,17 @@ class Color(enum.Enum):
             Color.WHITE: 15,
             Color.RED: 1,
             Color.BLUE: 4,
-            Color.ORANGE: 166,
+            Color.ORANGE: 208,
             Color.GREEN: 2,
             Color.YELLOW: 3
         }[self]
         return '\u001b[48;5;{}m'.format(code)
+
+
+def _color_row_to_str(color_row: List[Color]) -> str:
+    escape_sequences = [color.to_escape_sequence() for color in color_row]
+    return '{}  {}  {}  {}'.format(escape_sequences[0], escape_sequences[1],
+                                   escape_sequences[2], RESET_ESCAPE_SEQUENCE)
 
 
 @enum.unique
@@ -199,24 +205,18 @@ class Cube:
         face_colors = {face: self.__get_face_colors(face) for face in faces}
         lines = []
 
-        for row in face_colors[Color.WHITE]:
-            lines.append(__color_row_to_str(row))
+        for row in face_colors[Face.UP]:
+            lines.append('      ' + _color_row_to_str(row))
 
         for row_ix in range(3):
             line = ''
             for face in [Face.LEFT, Face.FRONT, Face.RIGHT, Face.BACK]:
-                line += __color_row_to_str(face_colors[face][row_ix])
+                line += _color_row_to_str(face_colors[face][row_ix])
             lines.append(line)
 
-        for row in face_colors[Color.YELLOW]:
-            lines.append(__color_row_to_str(row))
+        for row in face_colors[Face.DOWN]:
+            lines.append('      ' + _color_row_to_str(row))
         return '\n'.join(lines)
-
-
-def __color_row_to_str(color_row: List[Color]) -> str:
-    escape_sequences = [color.to_escape_sequence() for color in color_row]
-    return '{}  {}  {}  {}'.format(escape_sequences[0], escape_sequences[1],
-                                   escape_sequences[2], RESET_ESCAPE_SEQUENCE)
 
 
 BLOCK_TO_INDEX: Dict[Tuple[Color, ...], int] = {
