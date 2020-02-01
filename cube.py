@@ -122,7 +122,7 @@ class Cube:
         self._block_to_pos[18, 20] = 1
         self._block_to_pos[19, 22] = 1
 
-    def __get_face_colors(self, face):
+    def _get_face_colors(self, face):
         face_neighbors = _get_face_neighbors(face)
         positions = [(face, face_neighbors.top, face_neighbors.left),
                      (face, face_neighbors.top),
@@ -132,12 +132,12 @@ class Cube:
                      (face, face_neighbors.bottom),
                      (face, face_neighbors.bottom, face_neighbors.right)]
         positions = map(_normalize_position, positions)
-        colors = [self.__get_color(position, face) for position in positions]
+        colors = [self._get_color(position, face) for position in positions]
         colors.insert(4, _get_middle_color(face))
         colors = [colors[0:3], colors[3:6], colors[6:9]]
         return colors
 
-    def __get_color(self, position: Tuple[Face, ...], face: Face) -> Color:
+    def _get_color(self, position: Tuple[Face, ...], face: Face) -> Color:
         base_pos_index = POSITION_TO_INDEX[position]
 
         # Here we search for the block which is at the given position. Since
@@ -171,7 +171,7 @@ class Cube:
 
     def __str__(self) -> str:
         faces = (Face(i) for i in range(6))
-        face_colors = {face: self.__get_face_colors(face) for face in faces}
+        face_colors = {face: self._get_face_colors(face) for face in faces}
         lines = []
 
         for row in face_colors[Face.UP]:
@@ -209,7 +209,7 @@ class Cube:
             old = np.roll(old, rotation, axis=1)
             blocks_to_pos[:, to_ix:to_ix + max_rotation] = old
 
-    def __print_debug_state(self):
+    def _print_debug_state(self):
         print('--0 1 2 3 4 5 6 7 8 9 . 1 2 3 4 5 6 7 8 9 . 1 2 3')
         print(self._block_to_pos[:8])
         print('--0 1 2 3 4 5 6 7 8 9 . 1 2 3 4 5 6 7 8 9 . 1 2 3')
@@ -224,7 +224,7 @@ class Cube:
         self._rotate_blocks(from_to_rotations, corners=False)
 
     def rotate_face(self, face: Face, clockwise: bool) -> None:
-        self.__check_blocks_to_pos()
+        self._check_blocks_to_pos()
 
         # Each value in the list is the rotation to apply to the corners, and
         # the rotation to apply to the edges (in a pair). Each rotation is
@@ -252,8 +252,8 @@ class Cube:
         self._rotate_corners(corner_rotations)
         self._rotate_edges(edge_rotations)
 
-    def __check_blocks_to_pos(self) -> None:
-        #  self.__print_debug_state()
+    def _check_blocks_to_pos(self) -> None:
+        #  self._print_debug_state()
         # All cells are 0 or 1.
         assert np.all((self._block_to_pos == 0.0) | (self._block_to_pos == 1))
 
@@ -356,6 +356,9 @@ POSITION_TO_INDEX: Dict[Tuple[Face, ...], int] = {
     (Face.BACK, Face.DOWN): 20,
     (Face.LEFT, Face.DOWN): 22,
 }
+
+for position in POSITION_TO_INDEX:
+    assert position == _normalize_position(position)
 
 NUM_POSITIONS = 24
 
