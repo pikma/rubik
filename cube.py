@@ -55,6 +55,9 @@ class Face(enum.Enum):
         return self.value < other.value
 
 
+NUM_FACES = 6
+
+
 class Cube:
     ''' A Rubik's cube.
 
@@ -144,20 +147,20 @@ class Cube:
         # corners and edges are stored in different rows of the _block_to_pos
         # array, we need to search separately for both cases.
         if len(position) == 2:
-            _block_to_pos = self._block_to_pos[8:,
-                                               base_pos_index:base_pos_index +
-                                               2]
+            block_to_pos = self._block_to_pos[8:,
+                                              base_pos_index:base_pos_index +
+                                              2]
         elif len(position) == 3:
-            _block_to_pos = self._block_to_pos[:8,
-                                               base_pos_index:base_pos_index +
-                                               3]
+            block_to_pos = self._block_to_pos[:8,
+                                              base_pos_index:base_pos_index +
+                                              3]
 
         # Here we need to take into account the fact that blocks at a given
         # position can be rotated in different ways. The block_index is the
         # index of the block at the given location, and rotation is in {0, 1}
         # for edges, and {0, 1, 2} for corners: it is the index, in 'position',
         # of the face where the first color of 'block is.
-        block_index, rotation = np.argwhere(_block_to_pos)[0]
+        block_index, rotation = np.argwhere(block_to_pos)[0]
 
         if len(position) == 2:
             # Because we searched for block_index in the slice starting at 8.
@@ -165,12 +168,12 @@ class Cube:
 
         block = INDEX_TO_BLOCK[block_index]
         face_ix = position.index(face)
-        color = block[(rotation + face_ix) % len(block)]
+        color = block[(face_ix - rotation) % len(block)]
 
         return color
 
     def __str__(self) -> str:
-        faces = (Face(i) for i in range(6))
+        faces = (Face(i) for i in range(NUM_FACES))
         face_colors = {face: self._get_face_colors(face) for face in faces}
         lines = []
 
@@ -236,8 +239,21 @@ class Cube:
                 [(0, 3, 0), (3, 6, 0), (6, 9, 0), (9, 0, 0)],  #
                 [(0, 2, 0), (2, 4, 0), (4, 6, 0), (6, 0, 0)]),
             Face.LEFT: (
-                [(9, 0, 1), (0, 12, 1), (12, 21, 0), (21, 9, 1)],  #
+                [(9, 0, 2), (0, 12, 2), (12, 21, 0), (21, 9, 2)],  #
                 [(0, 8, 1), (8, 22, 0), (22, 14, 0), (14, 0, 1)]),
+            Face.FRONT: (
+                [(0, 3, 2), (3, 15, 2), (15, 12, 2), (12, 0, 0)],  #
+                [(2, 10, 1), (10, 16, 0), (16, 8, 1), (8, 2, 0)]),
+            Face.RIGHT: (
+                [(3, 6, 2), (6, 18, 2), (18, 15, 2), (15, 3, 0)],  #
+                [(4, 12, 1), (12, 18, 0), (18, 10, 1), (10, 4, 0)]),
+            Face.BACK: (
+                [(6, 9, 2), (9, 21, 0), (21, 18, 1), (18, 6, 0)],  #
+                [(6, 14, 0), (14, 20, 1), (20, 12, 1), (12, 6, 0)]),
+            Face.DOWN: (
+                [(12, 15, 0), (15, 18, 0), (18, 21, 1), (21, 12, 2)],  #
+                [(16, 18, 0), (18, 20, 0), (20, 22, 0), (22, 16, 0)]),
+
         }
         corner_rotations, edge_rotations = rotations[face]
 
@@ -271,6 +287,9 @@ class Cube:
         for i, pos in enumerate(splits):
             assert pos.sum() == 1, 'Position {}'.format(2 * i)
 
+    def __eq__(self, other):
+        return np.all(self._block_to_pos == other._block_to_pos)
+
 
 # The blocks need to map to the positions in POSITION_TO_INDEX, so that
 # initializing the cube in its solved state is trivial.
@@ -303,6 +322,11 @@ NUM_BLOCKS = len(BLOCK_TO_INDEX)
 
 
 def _normalize_position(position: Tuple[Face, ...]) -> Tuple[Face, ...]:
+    '''Normalizes a position (edge or corner).
+
+    For corner, it is assumed that the three faces are listed in
+    counter-clockwise order when looking at the cube.
+    '''
     min_value = None
     for i, face in enumerate(position):
         if min_value is None or face.value < min_value:
@@ -312,26 +336,31 @@ def _normalize_position(position: Tuple[Face, ...]) -> Tuple[Face, ...]:
     return position[min_face_ix:] + position[:min_face_ix]
 
 
-# Corners:
-#
-# For each entry in the list below, there are three possible orientations of
-# the block. To encode the orientation, we look at where the sticker with the
-# first color (in the order of the Color enum) is. If it is on the first face
-# in the list given below (for "Up Left Front", Up), then the index in the
+# Corners can be oriented in three different ways. To encode the orientation,
+# we look at where the first color in the block tuple is. If it is on the first
+# face in the position tuple (for "Up Left Front", Up), then the index in the
 # array is 0 mod 3. If it is on the second face (Left), then it is 1 mod 3, and
 # if it is on the third face (Front), then it is 2 mod 3.
 #
-# Note: for this to work, the cubes need to all be in the same geometrical
-# order, which is counter-clockwise when looking at the corner itself.
+# For a position tuple and a corner tuple, the color corner[0] is on the face
+# tuple[orientation]. Equivalently, the color on face with index face_ix is
+# face_ix - rotation.
 #
-# To make it easy to look up a position in this map, we rotate the faces in
-# each position so that each tuple starts with the position that has the lowest
-# enum value (for edges, there are only two faces, so that is equivalent to a
-# sort).
+# For this to work, the cubes need to all be in the same geometrical order,
+# which is counter-clockwise when looking at the corner itself.
 #
-# Edges:
+# We do the same for edges: they have 2 orientations, so we use the mod 2 to
+# encode the orientation.
 #
-# They need to start with the face that has the lowest int value.
+# Note: one problem is that each corner could in theory be represented by the
+# three faces it contains, in any order. That makes it impossible to loop up a
+# corner in the map without trying all possibilities. To solve this, we
+# represent the three faces in each corner in a consistent order:
+# geometrically, we start with the face that has the lowest enum value, and
+# then we list the two other edges in counter-clockwise order (when holding the
+# cube in front of you, facing the corner). For edges, it is simpler, we only
+# need to list the face with the lowest enum value first. Use
+# _normalize_position to do this when looking up a position.
 POSITION_TO_INDEX: Dict[Tuple[Face, ...], int] = {
     # Corners:
     (Face.UP, Face.LEFT, Face.FRONT): 0,
@@ -357,8 +386,8 @@ POSITION_TO_INDEX: Dict[Tuple[Face, ...], int] = {
     (Face.LEFT, Face.DOWN): 22,
 }
 
-for position in POSITION_TO_INDEX:
-    assert position == _normalize_position(position)
+for __position in POSITION_TO_INDEX:
+    assert __position == _normalize_position(__position)
 
 NUM_POSITIONS = 24
 
@@ -408,22 +437,11 @@ def _get_middle_color(face: Face) -> Color:
 def main():
     cube = Cube()
     print(cube)
-    print()
 
-    cube.rotate_face(Face.LEFT, clockwise=True)
-    print(cube)
-    print()
-
-    cube.rotate_face(Face.LEFT, clockwise=True)
-    print(cube)
-    print()
-
-    cube.rotate_face(Face.LEFT, clockwise=True)
-    print(cube)
-    print()
-
-    cube.rotate_face(Face.LEFT, clockwise=True)
-    print(cube)
+    for i in range(4):
+        cube.rotate_face(Face.DOWN, clockwise=True)
+        print()
+        print(cube)
 
 
 if __name__ == "__main__":
