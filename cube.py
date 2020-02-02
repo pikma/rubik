@@ -61,45 +61,17 @@ NUM_FACES = 6
 class Cube:
     ''' A Rubik's cube.
 
-    It is represented internally as a one-hot 20 * 24 matrix. Each row
-    represents a block (corner or edge), and for each row, exactly one column
-    is set to 1.  There are 24 possible positions for each block (for angles, 8
-    positions * 3 orientations; for edges, 12 positions * 2 orientations),
-    therefore the column that is set to 1 represents the position and
-    orientation of the block.
-
-    This idea comes from McAleer 2018 (https://arxiv.org/abs/1805.07470).
     '''
     def __init__(self):
-        # Positions for corner:
-        #   Each position is determined by the faces that the block is on.
-        #
-        #
-        #   0-2: Up Left Front
-        #   3-5: Up Front Right
-        #   6-8: Up Right Back
-        #   9-11: Up Left Back
-        #   12-14: Left Front Down
-        #   15-17: Front Right Down
-        #   18-20: Right Back Down
-        #   21-23: Left Back Down
-        #
-        # Positions for edge:
-        #   For each, the position is 0 mod 2 if the edge's first color (in the
-        #   order of the Color enum) is on the first listed below, and 1 mod 2
-        #   if it is on the second face.
-        #   0-1: Up Left
-        #   2-3: Up Front
-        #   4-5: Up Right
-        #   6-7: Up Back
-        #   8-9: Left Front
-        #   10-11: Front Right
-        #   12-13: Right Back
-        #   14-15: Back Left
-        #   16-17: Front Down
-        #   18-19: Right Down
-        #   20-21: Back Down
-        #   22-23: Left Down
+        # The cube is represented internally as a one-hot 20 * 24 matrix. Each
+        # row represents a block (corner or edge), and for each row, exactly
+        # one column is set to 1.  There are 24 possible positions for each
+        # block (for angles, 8 positions * 3 orientations; for edges, 12
+        # positions * 2 orientations), therefore the column that is set to 1
+        # represents the position and orientation of the block. See
+        # POSITION_TO_INDEX and BLOCK_TO_INDEX to understand the indices.
+
+        # This idea comes from McAleer 2018 (https://arxiv.org/abs/1805.07470).
         self._block_to_pos = np.zeros([20, 24], np.int)
 
         # Corners:
