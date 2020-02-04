@@ -262,6 +262,9 @@ class Cube:
     def __eq__(self, other):
         return np.all(self._block_to_pos == other._block_to_pos)
 
+    def as_numpy_array(self) -> np.array:
+        return self._block_to_pos.copy()
+
 
 # The blocks need to map to the positions in POSITION_TO_INDEX, so that
 # initializing the cube in its solved state is trivial.
@@ -410,7 +413,7 @@ def main():
     cube = Cube()
     print(cube)
 
-    for i in range(4):
+    for _ in range(4):
         cube.rotate_face(Face.DOWN, clockwise=True)
         print()
         print(cube)

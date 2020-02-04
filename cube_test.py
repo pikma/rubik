@@ -16,21 +16,21 @@ class CubeTest(unittest.TestCase):
                                  msg='Face is {}, clockwise is {}'.format(
                                      face, clockwise))
 
-    def test_random_moves_and_back(self):
+    def test_random_rotations_and_back(self):
         random.seed(0)
 
-        moves = []
+        rotations = []
 
         for _ in range(20):
             face = cube_lib.Face(random.randrange(0, cube_lib.NUM_FACES))
             clockwise = random.random() > 0.5
-            moves.append((face, random))
+            rotations.append((face, clockwise))
 
         cube = cube_lib.Cube()
-        for face, clockwise in moves:
+        for face, clockwise in rotations:
             cube.rotate_face(face, clockwise)
 
-        for face, clockwise in reversed(moves):
+        for face, clockwise in reversed(rotations):
             cube.rotate_face(face, not clockwise)
 
         self.assertEqual(cube, cube_lib.Cube())
