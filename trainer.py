@@ -36,35 +36,37 @@ def random_rotation() -> Tuple[cube_lib.Face, bool]:
     return (face, clockwise)
 
 
-def simulate_trajectory(trajectory_length: int) -> np.array:
-    '''Simulates a trajectory that finishes in a solved state.
+TRAJECTORY_LENGTH = 32
 
-    Returns:
-        an array of shape (trajectory_length, 20, 24).
-    '''
-    rotations = [random_rotation() for _ in range(trajectory_length)]
 
-    states = []
-    cube = cube_lib.Cube()
-    for face, clockwise in rotations:
-        cube.rotate_face(face, clockwise)
-        states.append(cube.as_numpy_array())
-
-    states = list(reversed(states))
-    return np.array(states)
+def generate_training_example() -> Tuple[np.ndarray, int]:
+    '''Generates training examples.'''
+    while True:
+        cube = cube_lib.Cube()
+        for i in range(TRAJECTORY_LENGTH):
+            face, clockwise = random_rotation()
+            cube.rotate_face(face, clockwise)
+            yield (cube.as_numpy_array(), i)
 
 
 BATCH_SIZE = 32
-NUM_EPOCHS = 1000000
+MODEL_PATH = ''
 
 
 def train_model(model: tf.keras.Model) -> None:
     '''Takes a compiled model and trains it.'''
-    for epoch in range(NUM_EPOCHS):
-        states = simulate_trajectory(BATCH_SIZE)
-        labels = np.arange(BATCH_SIZE, 0, -1)
-        verbose = 2 if epoch % 1000 == 0 else 0
-        model.fit(x=states, y=labels, verbose=verbose)
+    examples = tf.data.Dataset.from_generator(
+        generate_training_example,
+        (tf.int64, tf.int64),
+        (tf.TensorShape([20, 24]), tf.TensorShape([])))
+    examples = examples.batch(BATCH_SIZE).prefetch(16)
+    model.fit(
+        x=examples,
+        epochs=10,
+        steps_per_epoch=1000,
+        callbacks=[tf.keras.callbacks.TensorBoard(log_dir='/tmp/tensorboard')])
+    tf.saved_model.save(model, MODEL_PATH)
+
 
 
 def main():
