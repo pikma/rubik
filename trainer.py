@@ -32,8 +32,8 @@ def create_model() -> tf.keras.Model:
 def random_rotation() -> Tuple[cube_lib.Face, bool]:
     '''Generates one random rotation of the cube.'''
     face = cube_lib.Face(random.randrange(0, cube_lib.NUM_FACES))
-    clockwise = random.random() > 0.5
-    return (face, clockwise)
+    is_clockwise = random.random() > 0.5
+    return cube_lib.Rotation(face, is_clockwise)
 
 
 TRAJECTORY_LENGTH = 32
@@ -44,8 +44,7 @@ def generate_training_example() -> Tuple[np.ndarray, int]:
     while True:
         cube = cube_lib.Cube()
         for i in range(TRAJECTORY_LENGTH):
-            face, clockwise = random_rotation()
-            cube.rotate_face(face, clockwise)
+            cube.rotate_face(random_rotation())
             yield (cube.as_numpy_array(), i)
 
 
@@ -56,8 +55,7 @@ MODEL_PATH = ''
 def train_model(model: tf.keras.Model) -> None:
     '''Takes a compiled model and trains it.'''
     examples = tf.data.Dataset.from_generator(
-        generate_training_example,
-        (tf.int64, tf.int64),
+        generate_training_example, (tf.int64, tf.int64),
         (tf.TensorShape([20, 24]), tf.TensorShape([])))
     examples = examples.batch(BATCH_SIZE).prefetch(16)
     model.fit(
@@ -66,7 +64,6 @@ def train_model(model: tf.keras.Model) -> None:
         steps_per_epoch=1000,
         callbacks=[tf.keras.callbacks.TensorBoard(log_dir='/tmp/tensorboard')])
     tf.saved_model.save(model, MODEL_PATH)
-
 
 
 def main():

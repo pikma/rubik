@@ -58,6 +58,9 @@ class Face(enum.Enum):
 NUM_FACES = 6
 
 
+Rotation = collections.namedtuple('Rotation', ['face', 'is_clockwise'])
+
+
 class Cube:
     ''' A Rubik's cube.
 
@@ -198,7 +201,7 @@ class Cube:
     def _rotate_edges(self, from_to_rotations: Tuple[int, int, int]):
         self._rotate_blocks(from_to_rotations, corners=False)
 
-    def rotate_face(self, face: Face, clockwise: bool) -> None:
+    def rotate_face(self, rotation: Rotation) -> None:
         self._check_blocks_to_pos()
 
         # Each value in the list is the rotation to apply to the corners, and
@@ -227,13 +230,13 @@ class Cube:
                 [(16, 18, 0), (18, 20, 0), (20, 22, 0), (22, 16, 0)]),
 
         }
-        corner_rotations, edge_rotations = rotations[face]
+        corner_rotations, edge_rotations = rotations[rotation.face]
 
         def invert_rotation(rotation):
             return [(to_ix, from_ix, -rot)
                     for from_ix, to_ix, rot in reversed(rotation)]
 
-        if not clockwise:
+        if not rotation.is_clockwise:
             corner_rotations = invert_rotation(corner_rotations)
             edge_rotations = invert_rotation(edge_rotations)
 
@@ -414,7 +417,7 @@ def main():
     print(cube)
 
     for _ in range(4):
-        cube.rotate_face(Face.DOWN, clockwise=True)
+        cube.rotate_face(Rotation(Face.DOWN, is_clockwise=True))
         print()
         print(cube)
 
