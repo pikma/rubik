@@ -1,4 +1,3 @@
-import random
 from typing import List, Tuple
 
 import numpy as np
@@ -29,13 +28,6 @@ def create_model() -> tf.keras.Model:
     return model
 
 
-def random_rotation() -> Tuple[cube_lib.Face, bool]:
-    '''Generates one random rotation of the cube.'''
-    face = cube_lib.Face(random.randrange(0, cube_lib.NUM_FACES))
-    is_clockwise = random.random() > 0.5
-    return cube_lib.Rotation(face, is_clockwise)
-
-
 TRAJECTORY_LENGTH = 32
 
 
@@ -44,7 +36,7 @@ def generate_training_example() -> Tuple[np.ndarray, int]:
     while True:
         cube = cube_lib.Cube()
         for i in range(TRAJECTORY_LENGTH):
-            cube.rotate_face(random_rotation())
+            cube.rotate_face(cube_lib.Rotation.random_new())
             yield (cube.as_numpy_array(), i)
 
 

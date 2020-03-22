@@ -2,6 +2,9 @@
 
 import collections
 import enum
+import random
+import typing
+
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -58,7 +61,27 @@ class Face(enum.Enum):
 NUM_FACES = 6
 
 
-Rotation = collections.namedtuple('Rotation', ['face', 'is_clockwise'])
+class Rotation(typing.NamedTuple):
+    face: Face
+    is_clockwise: bool
+
+    def invert(self):
+        ''' Returns the rotation which is the invert of 'self'. '''
+        return Rotation(self.face, not self.is_clockwise)
+
+    @classmethod
+    def random_new(cls):
+        ''' Returns a random new Rotation. '''
+        face = Face(random.randrange(0, NUM_FACES))
+        is_clockwise = random.random() > 0.5
+        return cls(face, is_clockwise)
+
+    @classmethod
+    def all(cls):
+        ''' Yields all possible rotations. '''
+        for face in [Face(i) for i in range(NUM_FACES)]:
+            for is_clockwise in (False, True):
+                yield cls(face, is_clockwise)
 
 
 class Cube:
