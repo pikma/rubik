@@ -3,14 +3,16 @@ import unittest
 from unittest import mock
 
 import cube as cube_lib
-import solver
+import solver as solver_lib
 
 
 class GreedySolveTest(unittest.TestCase):
     def test_already_solved(self):
         cube = cube_lib.Cube()
         model = mock.Mock()
-        self.assertIsNone(solver.greedy_solve(model, cube, depth=1))
+
+        solver = solver_lib.GreedySolver(cube, model, depth=1)
+        self.assertIsNone(solver.apply_next_rotation())
 
     def test_one_rotation_depth_one(self):
         cube = cube_lib.Cube()
@@ -19,8 +21,9 @@ class GreedySolveTest(unittest.TestCase):
 
         model = mock.Mock()
         model.predict.return_value = [1.0]
-        self.assertEqual(solver.greedy_solve(model, cube, depth=1),
-                         rotation.invert())
+
+        solver = solver_lib.GreedySolver(cube, model, depth=1)
+        self.assertEqual(solver.apply_next_rotation(), rotation.invert())
 
     def test_one_rotation_depth_two(self):
         cube = cube_lib.Cube()
@@ -29,8 +32,8 @@ class GreedySolveTest(unittest.TestCase):
 
         model = mock.Mock()
         model.predict.return_value = [1.0]
-        self.assertEqual(solver.greedy_solve(model, cube, depth=2),
-                         rotation.invert())
+        solver = solver_lib.GreedySolver(cube, model, depth=2)
+        self.assertEqual(solver.apply_next_rotation(), rotation.invert())
 
     def test_two_rotations_depth_two(self):
         cube = cube_lib.Cube()
@@ -45,10 +48,11 @@ class GreedySolveTest(unittest.TestCase):
         # We follow the solver for two steps, and verify that the cube is
         # solved.
         self.assertFalse(cube.is_solved())
-        cube.rotate_face(solver.greedy_solve(model, cube, depth=2))
-        self.assertFalse(cube.is_solved())
-        cube.rotate_face(solver.greedy_solve(model, cube, depth=2))
-        self.assertTrue(cube.is_solved())
+
+        solver = solver_lib.GreedySolver(cube, model, depth=2)
+
+        self.assertFalse(solver.cube.is_solved())
+        self.assertTrue(solver.cube.is_solved())
 
 
 if __name__ == '__main__':

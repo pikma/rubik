@@ -5,7 +5,7 @@ import pandas as pd
 import tensorflow as tf
 
 import cube as cube_lib
-import solver
+import solver as solver_lib
 
 HIDDEN_LAYERS_WIDTH = [1024, 512, 256]
 
@@ -38,6 +38,8 @@ def generate_training_example() -> Tuple[np.ndarray, int]:
     while True:
         cube = cube_lib.Cube()
         for i in range(TRAJECTORY_LENGTH):
+            # TODO: try preventing two consecutive rotations that cancel each
+            # other.
             cube.rotate_face(cube_lib.Rotation.random_new())
             yield (cube.as_numpy_array(), i)
 
@@ -65,7 +67,7 @@ def train_model(model: tf.keras.Model) -> None:
         model.fit(
             x=examples,
             epochs=epoch + 1,  # Train for one epoch.
-            steps_per_epoch=10000,
+            steps_per_epoch=10,
             initial_epoch=epoch,
             callbacks=[
                 tf.keras.callbacks.TensorBoard(log_dir='/tmp/tensorboard')
@@ -85,36 +87,38 @@ def fraction_solved_greedy(model: tf.keras.Model, trajectory_length: int,
     for _ in range(num_trials):
         cube = cube_lib.Cube()
         for _ in range(trajectory_length):
+            # TODO: here too we should exclude consecutive rotations that
+            # cancel each other.
             rotation = cube_lib.Rotation.random_new()
             cube.rotate_face(rotation)
 
+        solver = solver_lib.GreedySolver(cube, model, depth=greedy_depth)
         for _ in range(trajectory_length):
-            if cube.is_solved():
+            if solver.cube.is_solved():
                 break
-            rotation = solver.greedy_solve(model, cube, depth=greedy_depth)
-            cube.rotate_face(rotation)
+            solver.apply_next_rotation()
 
-        if cube.is_solved():
+        if solver.cube.is_solved():
             num_solved += 1
     return num_solved / num_trials
 
 
 def evaluate_model(model: tf.keras.Model) -> pd.DataFrame:
     '''Evaluates a model's performance.'''
-    df = pd.DataFrame()
+    evaluation_results = pd.DataFrame()
     for trajectory_length in [2, 5, 10]:
         fraction_solved = fraction_solved_greedy(
             model,
             trajectory_length=trajectory_length,
             num_trials=10,
             greedy_depth=1)
-        df = df.append(
+        evaluation_results = evaluation_results.append(
             {
                 'trajectory_length': trajectory_length,
                 'fraction_solved': fraction_solved,
             },
             ignore_index=True)
-    return df
+    return evaluation_results
 
 
 def main():
