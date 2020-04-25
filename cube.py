@@ -62,6 +62,7 @@ NUM_FACES = 6
 
 
 class Rotation(typing.NamedTuple):
+    '''A rotation of a face, that can be applied to the cube.'''
     face: Face
     is_clockwise: bool
 
@@ -84,44 +85,55 @@ class Rotation(typing.NamedTuple):
                 yield cls(face, is_clockwise)
 
 
+def _init_block_to_pos():
+    # The cube is represented internally as a one-hot 20 * 24 matrix. Each
+    # row represents a block (corner or edge), and for each row, exactly
+    # one column is set to 1.  There are 24 possible positions for each
+    # block (for angles, 8 positions * 3 orientations; for edges, 12
+    # positions * 2 orientations), therefore the column that is set to 1
+    # represents the position and orientation of the block. See
+    # POSITION_TO_INDEX and BLOCK_TO_INDEX to understand the indices.
+
+    # This idea comes from McAleer 2018 (https://arxiv.org/abs/1805.07470).
+    result = np.zeros([20, 24], np.int)
+
+    # Corners:
+    result[0, 0] = 1
+    result[1, 3] = 1
+    result[2, 6] = 1
+    result[3, 9] = 1
+    result[4, 12] = 1
+    result[5, 15] = 1
+    result[6, 18] = 1
+    result[7, 21] = 1
+    result[8, 0] = 1
+    result[9, 2] = 1
+    result[10, 4] = 1
+    result[11, 6] = 1
+    result[12, 8] = 1
+    result[13, 10] = 1
+    result[14, 12] = 1
+    result[15, 14] = 1
+    result[16, 16] = 1
+    result[17, 18] = 1
+    result[18, 20] = 1
+    result[19, 22] = 1
+    return result
+
+
+_SOLVED_BLOCK_TO_POS = _init_block_to_pos()
+
+
 class Cube:
     ''' A Rubik's cube.
 
     '''
     def __init__(self):
-        # The cube is represented internally as a one-hot 20 * 24 matrix. Each
-        # row represents a block (corner or edge), and for each row, exactly
-        # one column is set to 1.  There are 24 possible positions for each
-        # block (for angles, 8 positions * 3 orientations; for edges, 12
-        # positions * 2 orientations), therefore the column that is set to 1
-        # represents the position and orientation of the block. See
-        # POSITION_TO_INDEX and BLOCK_TO_INDEX to understand the indices.
+        self._block_to_pos = _SOLVED_BLOCK_TO_POS.copy()
 
-        # This idea comes from McAleer 2018 (https://arxiv.org/abs/1805.07470).
-        self._block_to_pos = np.zeros([20, 24], np.int)
-
-        # Corners:
-        self._block_to_pos[0, 0] = 1
-        self._block_to_pos[1, 3] = 1
-        self._block_to_pos[2, 6] = 1
-        self._block_to_pos[3, 9] = 1
-        self._block_to_pos[4, 12] = 1
-        self._block_to_pos[5, 15] = 1
-        self._block_to_pos[6, 18] = 1
-        self._block_to_pos[7, 21] = 1
-        # Edges:
-        self._block_to_pos[8, 0] = 1
-        self._block_to_pos[9, 2] = 1
-        self._block_to_pos[10, 4] = 1
-        self._block_to_pos[11, 6] = 1
-        self._block_to_pos[12, 8] = 1
-        self._block_to_pos[13, 10] = 1
-        self._block_to_pos[14, 12] = 1
-        self._block_to_pos[15, 14] = 1
-        self._block_to_pos[16, 16] = 1
-        self._block_to_pos[17, 18] = 1
-        self._block_to_pos[18, 20] = 1
-        self._block_to_pos[19, 22] = 1
+    def is_solved(self):
+        ''' Returns true if the cube is solved. '''
+        return np.all(self._block_to_pos == _SOLVED_BLOCK_TO_POS)
 
     def _get_face_colors(self, face):
         face_neighbors = _get_face_neighbors(face)
@@ -251,7 +263,6 @@ class Cube:
             Face.DOWN: (
                 [(12, 15, 0), (15, 18, 0), (18, 21, 1), (21, 12, 2)],  #
                 [(16, 18, 0), (18, 20, 0), (20, 22, 0), (22, 16, 0)]),
-
         }
         corner_rotations, edge_rotations = rotations[rotation.face]
 
@@ -288,8 +299,19 @@ class Cube:
     def __eq__(self, other):
         return np.all(self._block_to_pos == other._block_to_pos)
 
+    def __hash__(self):
+        num_rows, num_cols = self._block_to_pos.shape
+        as_row = (self._block_to_pos *
+                  np.arange(num_rows).reshape([num_rows, 1])).sum(axis=0)
+        return tuple(as_row).__hash__()
+
     def as_numpy_array(self) -> np.array:
         return self._block_to_pos.copy()
+
+    def copy(self):
+        new_cube = Cube()
+        new_cube._block_to_pos = self._block_to_pos.copy()
+        return new_cube
 
 
 # The blocks need to map to the positions in POSITION_TO_INDEX, so that

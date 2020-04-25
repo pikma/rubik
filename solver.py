@@ -41,7 +41,7 @@ def greedy_solve(model: tf.keras.Model,
         if len(trajectory.rotations) >= depth:
             # Evaluate the state. The model predicts the distance to a solved
             # state, so the value is the opposite.
-            value = -model.predict([state.as_numpy_array()])[0]
+            value = -model.predict([[state.as_numpy_array()]])[0]
             if best_value is None or value > best_value:
                 best_value = value
                 best_rotation = trajectory.rotations[0]
