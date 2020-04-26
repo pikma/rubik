@@ -9,7 +9,7 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 
-RESET_ESCAPE_SEQUENCE = '\u001b[0m'
+_RESET_ESCAPE_SEQUENCE = '\u001b[0m'
 
 
 @enum.unique
@@ -41,7 +41,7 @@ class Color(enum.Enum):
 def _color_row_to_str(color_row: List[Color]) -> str:
     escape_sequences = [color.to_escape_sequence() for color in color_row]
     return '{}  {}  {}  {}'.format(escape_sequences[0], escape_sequences[1],
-                                   escape_sequences[2], RESET_ESCAPE_SEQUENCE)
+                                   escape_sequences[2], _RESET_ESCAPE_SEQUENCE)
 
 
 @enum.unique
@@ -58,7 +58,7 @@ class Face(enum.Enum):
         return self.value < other.value
 
 
-NUM_FACES = 6
+_NUM_FACES = 6
 
 
 class Rotation(typing.NamedTuple):
@@ -73,14 +73,14 @@ class Rotation(typing.NamedTuple):
     @classmethod
     def random_new(cls):
         ''' Returns a random new Rotation. '''
-        face = Face(random.randrange(0, NUM_FACES))
+        face = Face(random.randrange(0, _NUM_FACES))
         is_clockwise = random.random() > 0.5
         return cls(face, is_clockwise)
 
     @classmethod
     def all(cls):
         ''' Yields all possible rotations. '''
-        for face in [Face(i) for i in range(NUM_FACES)]:
+        for face in [Face(i) for i in range(_NUM_FACES)]:
             for is_clockwise in (False, True):
                 yield cls(face, is_clockwise)
 
@@ -92,7 +92,7 @@ def _init_block_to_pos():
     # block (for angles, 8 positions * 3 orientations; for edges, 12
     # positions * 2 orientations), therefore the column that is set to 1
     # represents the position and orientation of the block. See
-    # POSITION_TO_INDEX and BLOCK_TO_INDEX to understand the indices.
+    # _POSITION_TO_INDEX and _BLOCK_TO_INDEX to understand the indices.
 
     # This idea comes from McAleer 2018 (https://arxiv.org/abs/1805.07470).
     result = np.zeros([20, 24], np.int)
@@ -128,6 +128,7 @@ class Cube:
     ''' A Rubik's cube.
 
     '''
+
     def __init__(self):
         self._block_to_pos = _SOLVED_BLOCK_TO_POS.copy()
 
@@ -151,7 +152,7 @@ class Cube:
         return colors
 
     def _get_color(self, position: Tuple[Face, ...], face: Face) -> Color:
-        base_pos_index = POSITION_TO_INDEX[position]
+        base_pos_index = _POSITION_TO_INDEX[position]
 
         # Here we search for the block which is at the given position. Since
         # corners and edges are stored in different rows of the _block_to_pos
@@ -176,14 +177,14 @@ class Cube:
             # Because we searched for block_index in the slice starting at 8.
             block_index += 8
 
-        block = INDEX_TO_BLOCK[block_index]
+        block = _INDEX_TO_BLOCK[block_index]
         face_ix = position.index(face)
         color = block[(face_ix - rotation) % len(block)]
 
         return color
 
     def __str__(self) -> str:
-        faces = (Face(i) for i in range(NUM_FACES))
+        faces = (Face(i) for i in range(_NUM_FACES))
         face_colors = {face: self._get_face_colors(face) for face in faces}
         lines = []
 
@@ -287,12 +288,12 @@ class Cube:
         assert np.all(num_pos_per_block == 1)
 
         # Each position is filled by one corner block.
-        splits = np.split(self._block_to_pos[:8], NUM_POSITIONS // 3, axis=1)
+        splits = np.split(self._block_to_pos[:8], _NUM_POSITIONS // 3, axis=1)
         for i, pos in enumerate(splits):
             assert pos.sum() == 1, 'Position {}'.format(3 * i)
 
         # Each position is filled by one edge block.
-        splits = np.split(self._block_to_pos[8:], NUM_POSITIONS // 2, axis=1)
+        splits = np.split(self._block_to_pos[8:], _NUM_POSITIONS // 2, axis=1)
         for i, pos in enumerate(splits):
             assert pos.sum() == 1, 'Position {}'.format(2 * i)
 
@@ -300,7 +301,7 @@ class Cube:
         return np.all(self._block_to_pos == other._block_to_pos)
 
     def __hash__(self):
-        num_rows, num_cols = self._block_to_pos.shape
+        num_rows, _ = self._block_to_pos.shape
         as_row = (self._block_to_pos *
                   np.arange(num_rows).reshape([num_rows, 1])).sum(axis=0)
         return tuple(as_row).__hash__()
@@ -314,9 +315,9 @@ class Cube:
         return new_cube
 
 
-# The blocks need to map to the positions in POSITION_TO_INDEX, so that
+# The blocks need to map to the positions in _POSITION_TO_INDEX, so that
 # initializing the cube in its solved state is trivial.
-BLOCK_TO_INDEX: Dict[Tuple[Color, ...], int] = {
+_BLOCK_TO_INDEX: Dict[Tuple[Color, ...], int] = {
     (Color.WHITE, Color.RED, Color.BLUE): 0,
     (Color.WHITE, Color.BLUE, Color.ORANGE): 1,
     (Color.WHITE, Color.ORANGE, Color.GREEN): 2,
@@ -339,9 +340,9 @@ BLOCK_TO_INDEX: Dict[Tuple[Color, ...], int] = {
     (Color.RED, Color.YELLOW): 19,
 }
 
-INDEX_TO_BLOCK = {v: k for k, v in BLOCK_TO_INDEX.items()}
+_INDEX_TO_BLOCK = {v: k for k, v in _BLOCK_TO_INDEX.items()}
 
-NUM_BLOCKS = len(BLOCK_TO_INDEX)
+_NUM_BLOCKS = len(_BLOCK_TO_INDEX)
 
 
 def _normalize_position(position: Tuple[Face, ...]) -> Tuple[Face, ...]:
@@ -384,7 +385,7 @@ def _normalize_position(position: Tuple[Face, ...]) -> Tuple[Face, ...]:
 # cube in front of you, facing the corner). For edges, it is simpler, we only
 # need to list the face with the lowest enum value first. Use
 # _normalize_position to do this when looking up a position.
-POSITION_TO_INDEX: Dict[Tuple[Face, ...], int] = {
+_POSITION_TO_INDEX: Dict[Tuple[Face, ...], int] = {
     # Corners:
     (Face.UP, Face.LEFT, Face.FRONT): 0,
     (Face.UP, Face.FRONT, Face.RIGHT): 3,
@@ -409,10 +410,10 @@ POSITION_TO_INDEX: Dict[Tuple[Face, ...], int] = {
     (Face.LEFT, Face.DOWN): 22,
 }
 
-for __position in POSITION_TO_INDEX:
+for __position in _POSITION_TO_INDEX:
     assert __position == _normalize_position(__position)
 
-NUM_POSITIONS = 24
+_NUM_POSITIONS = 24
 
 FaceNeighbors = collections.namedtuple('FaceNeighbors',
                                        ['left', 'top', 'right', 'bottom'])
@@ -455,6 +456,22 @@ def _get_face_neighbors(face: Face) -> FaceNeighbors:
 
 def _get_middle_color(face: Face) -> Color:
     return Color(face.value)
+
+
+def get_scrambled_cube(num_rotations: int) -> Cube:
+    '''Scrambles a cube with 'num_rotations' random rotations.'''
+    cube = Cube()
+    last_rotation = None
+    for _ in range(num_rotations):
+        # Make sure that we don't invert the previous rotation.
+        next_rotation = None
+        while next_rotation is None or last_rotation is None or next_rotation == last_rotation.invert():
+            next_rotation = Rotation.random_new()
+            last_rotation = next_rotation
+
+        cube.rotate_face(next_rotation)
+
+    return cube
 
 
 def main():

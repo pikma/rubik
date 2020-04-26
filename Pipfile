@@ -7,6 +7,10 @@ verify_ssl = true
 pylint = "*"
 flake8 = "*"
 yapf = "*"
+autopep8 = "*"
+jupyter = "*"
+notebook = "*"
+matplotlib = "*"
 
 [packages]
 numpy = "*"
