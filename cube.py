@@ -5,7 +5,7 @@ import enum
 import random
 import typing
 
-from typing import Dict, List, Tuple
+from typing import Dict, Iterable, List, Tuple
 
 import numpy as np
 
@@ -128,7 +128,6 @@ class Cube:
     ''' A Rubik's cube.
 
     '''
-
     def __init__(self):
         self._block_to_pos = _SOLVED_BLOCK_TO_POS.copy()
 
@@ -458,20 +457,30 @@ def _get_middle_color(face: Face) -> Color:
     return Color(face.value)
 
 
-def get_scrambled_cube(num_rotations: int) -> Cube:
-    '''Scrambles a cube with 'num_rotations' random rotations.'''
+def scramble_cube(num_rotations: int) -> Iterable[Cube]:
+    '''Scrambles a cube with 'num_rotations' rotations.
+
+    Yields the cube after each rotation is applied.
+    '''
     cube = Cube()
     last_rotation = None
     for _ in range(num_rotations):
         # Make sure that we don't invert the previous rotation.
-        next_rotation = None
-        while next_rotation is None or last_rotation is None or next_rotation == last_rotation.invert():
+        next_rotation = Rotation.random_new()
+        while next_rotation.invert() == last_rotation:
             next_rotation = Rotation.random_new()
-            last_rotation = next_rotation
 
         cube.rotate_face(next_rotation)
+        last_rotation = next_rotation
+        yield cube
 
-    return cube
+
+def get_scrambled_cube(num_rotations: int) -> Cube:
+    '''Scrambles a cube with 'num_rotations' random rotations.'''
+    result = None
+    for result in scramble_cube(num_rotations):
+        pass
+    return result
 
 
 def main():

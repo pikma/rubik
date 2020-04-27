@@ -7,7 +7,7 @@ import tensorflow as tf
 import cube as cube_lib
 import solver as solver_lib
 
-HIDDEN_LAYERS_WIDTH = [1024, 512, 256]
+HIDDEN_LAYERS_WIDTH = [4096, 2048, 1024]
 
 
 def create_model() -> tf.keras.Model:
@@ -36,12 +36,8 @@ TRAJECTORY_LENGTH = 32
 def generate_training_example() -> Tuple[np.ndarray, int]:
     '''Generates training examples.'''
     while True:
-        cube = cube_lib.Cube()
-        for i in range(TRAJECTORY_LENGTH):
-            # TODO: try preventing two consecutive rotations that cancel each
-            # other.
-            cube.rotate_face(cube_lib.Rotation.random_new())
-            yield (cube.as_numpy_array(), i)
+        for i, cube in enumerate(cube_lib.scramble_cube(TRAJECTORY_LENGTH)):
+            yield (cube.as_numpy_array(), i + 1)
 
 
 BATCH_SIZE = 32
@@ -67,7 +63,7 @@ def train_model(model: tf.keras.Model) -> None:
         model.fit(
             x=examples,
             epochs=epoch + 1,  # Train for one epoch.
-            steps_per_epoch=10,
+            steps_per_epoch=10000,
             initial_epoch=epoch,
             callbacks=[
                 tf.keras.callbacks.TensorBoard(log_dir='/tmp/tensorboard')

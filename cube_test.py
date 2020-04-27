@@ -36,6 +36,17 @@ class CubeTest(unittest.TestCase):
 
         self.assertEqual(cube, cube_lib.Cube())
 
+    def test_scrambled_cube(self):
+        '''Scrambling the cube with cannot return a solved cube.
+
+        This is guaranteed for 2 and 3 rotations, because scramble_cube does
+        not apply two consecutive rotations that cancel each other.
+        '''
+        self.assertNotEqual(cube_lib.get_scrambled_cube(num_rotations=2),
+                            cube_lib.Cube())
+        self.assertNotEqual(cube_lib.get_scrambled_cube(num_rotations=3),
+                            cube_lib.Cube())
+
 
 if __name__ == '__main__':
     unittest.main()
