@@ -11,6 +11,7 @@ autopep8 = "*"
 jupyter = "*"
 notebook = "*"
 matplotlib = "*"
+rope = "*"
 
 [packages]
 numpy = "*"

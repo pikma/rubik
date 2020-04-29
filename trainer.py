@@ -32,24 +32,28 @@ def create_model() -> tf.keras.Model:
 
 TRAJECTORY_LENGTH = 32
 
-
-def generate_training_example() -> Tuple[np.ndarray, int]:
-    '''Generates training examples.'''
-    while True:
-        for i, cube in enumerate(cube_lib.scramble_cube(TRAJECTORY_LENGTH)):
-            yield (cube.as_numpy_array(), i + 1)
-
-
 BATCH_SIZE = 32
-MODEL_PATH = './model'
+MODEL_PATH = './models'
 
 NUM_EPOCHS = 10
+NUM_STEPS_PER_EPOCH = 1000
 
 
-def train_model(model: tf.keras.Model) -> None:
-    '''Takes a compiled model and trains it.'''
+def train_supervised_value_model(model: tf.keras.Model) -> None:
+    '''Takes a compiled model and trains it.
+
+    Trains a value model in a supervised mannel: it simply tries to predict the
+    value at each state.
+    '''
+    def generated_supervised_value_examples() -> Tuple[np.ndarray, int]:
+        '''Generates training examples.'''
+        while True:
+            for i, cube in enumerate(
+                    cube_lib.scramble_cube(TRAJECTORY_LENGTH)):
+                yield (cube.as_numpy_array(), i + 1)
+
     examples = tf.data.Dataset.from_generator(
-        generate_training_example, (tf.int64, tf.int64),
+        generated_supervised_value_examples, (tf.int64, tf.int64),
         (tf.TensorShape([20, 24]), tf.TensorShape([])))
     # Training examples are generated from trajectories, so consecutive
     # examples are strongly correlated. This increases the variance of the
@@ -63,7 +67,7 @@ def train_model(model: tf.keras.Model) -> None:
         model.fit(
             x=examples,
             epochs=epoch + 1,  # Train for one epoch.
-            steps_per_epoch=10000,
+            steps_per_epoch=NUM_STEPS_PER_EPOCH,
             initial_epoch=epoch,
             callbacks=[
                 tf.keras.callbacks.TensorBoard(log_dir='/tmp/tensorboard')
@@ -73,7 +77,66 @@ def train_model(model: tf.keras.Model) -> None:
         epoch_evaluation_df['epoch'] = epoch
         evaluation_df = evaluation_df.append(epoch_evaluation_df,
                                              ignore_index=True)
-    tf.saved_model.save(model, MODEL_PATH)
+    tf.saved_model.save(model, './models/supervised_value')
+
+
+def train_td_value_model(model: tf.keras.Model) -> None:
+    '''Trains a compiled model.
+
+    The model is trained using TD-learning: it tries to predict 1 plus the
+    maximum of its own prediction on the successor states.
+    '''
+    # TODO: Right now, this is extremely slow (~1 step/sec). The generation of
+    # examples is the slow part, one way to make it faster is to batch the
+    # predictions more.
+    def generate_td_value_examples() -> Tuple[np.ndarray, float]:
+        '''Generates training examples.'''
+        while True:
+            for cube in cube_lib.scramble_cube(TRAJECTORY_LENGTH):
+                next_value = None
+                next_cube_features = []
+
+                for rotation in cube_lib.Rotation.all():
+                    next_cube = cube.copy()
+                    next_cube.rotate_face(rotation)
+                    if next_cube.is_solved():
+                        next_value = 1
+                    else:
+                        next_cube_features.append(next_cube.as_numpy_array())
+
+                if next_value is None:
+                    next_cube_predictions = model.predict([next_cube_features])
+                    assert next_cube_predictions.shape == (
+                        12, 1), next_cube_predictions.shape
+                    next_value = 1 + np.min(next_cube_predictions)
+
+                yield (cube.as_numpy_array(), next_value)
+
+    # TODO: we generate the labels using the model that we train. Consider
+    # keeping the label model fixed for a while until the trained model
+    # converges, and only then updating it.
+    examples = tf.data.Dataset.from_generator(
+        generate_td_value_examples, (tf.int64, tf.float32),
+        (tf.TensorShape([20, 24]), tf.TensorShape([])))
+    examples = examples.shuffle(
+        buffer_size=4096).batch(BATCH_SIZE).prefetch(16)
+
+    evaluation_df = pd.DataFrame()
+    for epoch in range(NUM_EPOCHS):
+        model.fit(
+            x=examples,
+            epochs=epoch + 1,  # Train for one epoch.
+            steps_per_epoch=NUM_STEPS_PER_EPOCH,
+            initial_epoch=epoch,
+            callbacks=[
+                tf.keras.callbacks.TensorBoard(log_dir='/tmp/tensorboard')
+            ])
+        epoch_evaluation_df = evaluate_model(model)
+        print(epoch_evaluation_df)
+        epoch_evaluation_df['epoch'] = epoch
+        evaluation_df = evaluation_df.append(epoch_evaluation_df,
+                                             ignore_index=True)
+    tf.saved_model.save(model, './models/td_value')
 
 
 def fraction_solved_greedy(model: tf.keras.Model, trajectory_length: int,
@@ -81,13 +144,7 @@ def fraction_solved_greedy(model: tf.keras.Model, trajectory_length: int,
     '''Computes the fraction of random cubes that can be solved greedily.'''
     num_solved = 0
     for _ in range(num_trials):
-        cube = cube_lib.Cube()
-        for _ in range(trajectory_length):
-            # TODO: here too we should exclude consecutive rotations that
-            # cancel each other.
-            rotation = cube_lib.Rotation.random_new()
-            cube.rotate_face(rotation)
-
+        cube = cube_lib.get_scrambled_cube(trajectory_length)
         solver = solver_lib.GreedySolver(cube, model, depth=greedy_depth)
         for _ in range(trajectory_length):
             if solver.cube.is_solved():
@@ -119,7 +176,8 @@ def evaluate_model(model: tf.keras.Model) -> pd.DataFrame:
 
 def main():
     model = create_model()
-    train_model(model)
+    #  train_supervised_value_model(model)
+    train_td_value_model(model)
 
 
 if __name__ == "__main__":

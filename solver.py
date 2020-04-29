@@ -62,6 +62,7 @@ class GreedySolver:
             if len(trajectory.rotations) >= self._depth:
                 # Evaluate the state. The model predicts the distance to a
                 # solved state, so the value is the opposite.
+                # TODO: batch the calls to the model.
                 value = -self._model.predict([[state.as_numpy_array()]])[0]
                 if best_value is None or value > best_value:
                     best_value = value

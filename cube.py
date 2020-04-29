@@ -237,7 +237,7 @@ class Cube:
         self._rotate_blocks(from_to_rotations, corners=False)
 
     def rotate_face(self, rotation: Rotation) -> None:
-        self._check_blocks_to_pos()
+        #  self._check_blocks_to_pos()
 
         # Each value in the list is the rotation to apply to the corners, and
         # the rotation to apply to the edges (in a pair). Each rotation is
