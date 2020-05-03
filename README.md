@@ -10,16 +10,17 @@ It's good enough to solve
 cubes scrambled with 5 rotations with just a 1-depth greedy search.
 
 
-Ideas of next steps:
+Next steps:
+ - batch calls to the model in get_td_value_examples and in the greedy solver.
+ - implement A*.
  - investigate the model's behavior more:
     * more metrics than the loss (e.g. average L1 error)
     * slice metrics by the label: are we better at cubes closer or further from
       a solved state?
+ - weight training examples by 1/{# of rotations done to scramble}.
+
+ - implement the model that has both a value head and a policy head
  - implement MCTS.
- - change the labels of the model so that it looks more like TD learning (the
-   label is the prediction in the next state)
- - change the training set so that the labels are the true distance to the
-   solved state (generate the labels using a DFS from the solved state).
 
 
 ## References

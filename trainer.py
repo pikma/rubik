@@ -1,4 +1,6 @@
-from typing import List, Tuple
+'''Libraries for training models that are used to solve a Rubik's cube.'''
+
+from typing import Tuple
 
 import numpy as np
 import pandas as pd
@@ -39,11 +41,10 @@ NUM_EPOCHS = 10
 NUM_STEPS_PER_EPOCH = 1000
 
 
-def train_supervised_value_model(model: tf.keras.Model) -> None:
-    '''Takes a compiled model and trains it.
+def get_supervised_value_examples() -> tf.data.Dataset:
+    '''Returns a set of examples for a supervised value model.
 
-    Trains a value model in a supervised mannel: it simply tries to predict the
-    value at each state.
+    The dataset outputs (state_features, value) tuples.
     '''
     def generated_supervised_value_examples() -> Tuple[np.ndarray, int]:
         '''Generates training examples.'''
@@ -52,9 +53,54 @@ def train_supervised_value_model(model: tf.keras.Model) -> None:
                     cube_lib.scramble_cube(TRAJECTORY_LENGTH)):
                 yield (cube.as_numpy_array(), i + 1)
 
-    examples = tf.data.Dataset.from_generator(
+    return tf.data.Dataset.from_generator(
         generated_supervised_value_examples, (tf.int64, tf.int64),
         (tf.TensorShape([20, 24]), tf.TensorShape([])))
+
+
+def get_td_value_examples(model: tf.keras.Model) -> tf.data.Dataset:
+    '''Returns a set of examples for a supervised value model.
+
+    The dataset outputs (state_features, value) tuples.
+    '''
+    # TODO: Right now, this is extremely slow (~1 step/sec). Investigate why.
+    def generate_td_value_examples() -> Tuple[np.ndarray, float]:
+        '''Generates training examples.'''
+        while True:
+            for cube in cube_lib.scramble_cube(TRAJECTORY_LENGTH):
+                next_value = None
+                next_cube_features = []
+
+                for rotation in cube_lib.Rotation.all():
+                    next_cube = cube.copy()
+                    next_cube.rotate_face(rotation)
+                    if next_cube.is_solved():
+                        next_value = 1
+                        break
+                    else:
+                        next_cube_features.append(next_cube.as_numpy_array())
+
+                if next_value is None:
+                    next_cube_predictions = model.predict([next_cube_features])
+                    assert next_cube_predictions.shape == (
+                        12, 1), next_cube_predictions.shape
+                    next_value = 1 + np.min(next_cube_predictions)
+
+                yield (cube.as_numpy_array(), next_value)
+
+    return tf.data.Dataset.from_generator(
+        generate_td_value_examples, (tf.int64, tf.float32),
+        (tf.TensorShape([20, 24]), tf.TensorShape([])))
+
+
+def train_value_model(model: tf.keras.Model,
+                      examples: tf.data.Dataset) -> None:
+    '''Takes a compiled model and trains it.
+
+    Trains a value model in a supervised mannel: it simply tries to predict the
+    value at each state.
+    '''
+
     # Training examples are generated from trajectories, so consecutive
     # examples are strongly correlated. This increases the variance of the
     # gradient. Shuffling the examples reduces the variance and speeds up
@@ -77,7 +123,6 @@ def train_supervised_value_model(model: tf.keras.Model) -> None:
         epoch_evaluation_df['epoch'] = epoch
         evaluation_df = evaluation_df.append(epoch_evaluation_df,
                                              ignore_index=True)
-    tf.saved_model.save(model, './models/supervised_value')
 
 
 def train_td_value_model(model: tf.keras.Model) -> None:
@@ -86,39 +131,10 @@ def train_td_value_model(model: tf.keras.Model) -> None:
     The model is trained using TD-learning: it tries to predict 1 plus the
     maximum of its own prediction on the successor states.
     '''
-    # TODO: Right now, this is extremely slow (~1 step/sec). The generation of
-    # examples is the slow part, one way to make it faster is to batch the
-    # predictions more.
-    def generate_td_value_examples() -> Tuple[np.ndarray, float]:
-        '''Generates training examples.'''
-        while True:
-            for cube in cube_lib.scramble_cube(TRAJECTORY_LENGTH):
-                next_value = None
-                next_cube_features = []
-
-                for rotation in cube_lib.Rotation.all():
-                    next_cube = cube.copy()
-                    next_cube.rotate_face(rotation)
-                    if next_cube.is_solved():
-                        next_value = 1
-                    else:
-                        next_cube_features.append(next_cube.as_numpy_array())
-
-                if next_value is None:
-                    next_cube_predictions = model.predict([next_cube_features])
-                    assert next_cube_predictions.shape == (
-                        12, 1), next_cube_predictions.shape
-                    next_value = 1 + np.min(next_cube_predictions)
-
-                yield (cube.as_numpy_array(), next_value)
-
     # TODO: we generate the labels using the model that we train. Consider
     # keeping the label model fixed for a while until the trained model
     # converges, and only then updating it.
-    examples = tf.data.Dataset.from_generator(
-        generate_td_value_examples, (tf.int64, tf.float32),
-        (tf.TensorShape([20, 24]), tf.TensorShape([])))
-    examples = examples.shuffle(
+    examples = get_td_value_examples(model).shuffle(
         buffer_size=4096).batch(BATCH_SIZE).prefetch(16)
 
     evaluation_df = pd.DataFrame()
@@ -174,10 +190,25 @@ def evaluate_model(model: tf.keras.Model) -> pd.DataFrame:
     return evaluation_results
 
 
+MODEL_TYPE = 'TD_VALUE'
+#  MODEL_TYPE = 'SUPERVISED_VALUE'
+
+
 def main():
+    '''Trains a model.'''
     model = create_model()
-    #  train_supervised_value_model(model)
-    train_td_value_model(model)
+
+    if MODEL_TYPE == 'TD_VALUE':
+        examples = get_td_value_examples(model)
+        model_path = './models/supervised_value'
+    elif MODEL_TYPE == 'SUPERVISED_VALUE':
+        examples = get_supervised_value_examples()
+        model_path = './models/td_value'
+    else:
+        raise ValueError(MODEL_TYPE)
+
+    train_value_model(model, examples)
+    tf.saved_model.save(model, model_path)
 
 
 if __name__ == "__main__":
