@@ -1,16 +1,22 @@
 '''Solving the cube given a value model.'''
 
 import collections
+import dataclasses
 
-from typing import Callable
+from typing import Callable, Optional
 
 import pandas as pd
 import tensorflow as tf
 
 import cube as cube_lib
+import util
 
-_Trajectory = collections.namedtuple('_Trajectory',
-                                     ['final_state', 'rotations'])
+
+@dataclasses.dataclass
+class _Trajectory:
+    final_state: cube_lib.Cube
+    first_rotation: Optional[cube_lib.Rotation] = None
+    num_rotations: int = 0
 
 
 class GreedySolver:
@@ -27,7 +33,9 @@ class GreedySolver:
         solve the cube (this is the opposive of a value function).
         '''
         self.cube = cube.copy()
-        self._model = model
+        self._model_batcher = util.ModelBatcher(1024,
+                                                model,
+                                                feature_shape=(20, 24))
         self._depth = depth
 
     def apply_next_rotation(self):
@@ -42,12 +50,24 @@ class GreedySolver:
         # We do a BFS so that we traverse states in increasing order of depth.
         # That way, as soon as we encounter a solved state, we know that we
         # have found the shortest path.
-        queue = collections.deque(
-            [_Trajectory(final_state=self.cube, rotations=[])])
+        queue = collections.deque()
+        queue.append(_Trajectory(final_state=self.cube))
+
         explored_set = {self.cube}
 
         best_rotation = None
         best_value = None
+
+        def process_predictions():
+            nonlocal best_rotation
+            nonlocal best_value
+            for value, first_rotation in (
+                    self._model_batcher.get_predictions()):
+                value = value[0]
+                # The model predicts the distance, so we minimize it.
+                if best_value is None or value < best_value:
+                    best_value = value
+                    best_rotation = first_rotation
 
         while queue:
             trajectory = queue.pop()
@@ -56,29 +76,38 @@ class GreedySolver:
             if state.is_solved():
                 # We know this is the shortest trajectory since we are doing a
                 # BFS.
-                best_rotation = trajectory.rotations[0]
-                break
+                self.cube.rotate_face(trajectory.first_rotation)
+                return trajectory.first_rotation
 
-            if len(trajectory.rotations) >= self._depth:
-                # Evaluate the state. The model predicts the distance to a
-                # solved state, so the value is the opposite.
-                # TODO: batch the calls to the model.
-                value = -self._model.predict([[state.as_numpy_array()]])[0]
-                if best_value is None or value > best_value:
-                    best_value = value
-                    best_rotation = trajectory.rotations[0]
-                continue
+            if trajectory.num_rotations >= self._depth:
+                # We reached a leaf in the tree, therefore we use the model to
+                # evaluate the state.
+                self._model_batcher.enqueue_predictions(
+                    state.as_numpy_array().reshape((1, 20, 24)),
+                    request_id=trajectory.first_rotation)
 
-            for rotation in cube_lib.Rotation.all():
-                new_state = state.copy()
-                new_state.rotate_face(rotation)
+                process_predictions()
+            else:
+                # This isn't a leaf state, we expand it.
+                for rotation in cube_lib.Rotation.all():
+                    new_state = state.copy()
+                    new_state.rotate_face(rotation)
 
-                if new_state not in explored_set:
-                    explored_set.add(new_state)
-                    queue.appendleft(
-                        _Trajectory(final_state=new_state,
-                                    rotations=trajectory.rotations +
-                                    [rotation]))
+                    if new_state not in explored_set:
+                        explored_set.add(new_state)
+                        # The first_rotation is set to None for empty
+                        # trajectory (the one with the root state). If that's
+                        # the case, then we are currently at the first
+                        # rotation.
+                        first_rotation = trajectory.first_rotation or rotation
+                        queue.appendleft(
+                            _Trajectory(
+                                final_state=new_state,
+                                first_rotation=first_rotation,
+                                num_rotations=trajectory.num_rotations + 1))
+
+        self._model_batcher.flush()
+        process_predictions()
 
         self.cube.rotate_face(best_rotation)
         return best_rotation

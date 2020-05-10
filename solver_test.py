@@ -51,7 +51,13 @@ class GreedySolveTest(unittest.TestCase):
 
         solver = solver_lib.GreedySolver(cube, model, depth=2)
 
+        self.assertEqual(
+            solver.apply_next_rotation(),
+            cube_lib.Rotation(cube_lib.Face.UP, is_clockwise=True))
         self.assertFalse(solver.cube.is_solved())
+        self.assertEqual(
+            solver.apply_next_rotation(),
+            cube_lib.Rotation(cube_lib.Face.LEFT, is_clockwise=False))
         self.assertTrue(solver.cube.is_solved())
 
 
