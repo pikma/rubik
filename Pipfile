@@ -5,9 +5,7 @@ verify_ssl = true
 
 [dev-packages]
 pylint = "*"
-flake8 = "*"
 yapf = "*"
-autopep8 = "*"
 jupyter = "*"
 notebook = "*"
 matplotlib = "*"
@@ -17,6 +15,7 @@ rope = "*"
 numpy = "*"
 tensorflow = "*"
 pandas = "*"
+tensorboard = "*"
 
 [requires]
-python_version = "3.6"
+python_version = "3.7"
