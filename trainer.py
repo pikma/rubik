@@ -1,6 +1,5 @@
 '''Libraries for training models that are used to solve a Rubik's cube.'''
 
-
 from typing import Tuple
 
 import numpy as np
@@ -9,6 +8,7 @@ import tensorflow as tf
 
 import cube as cube_lib
 import solver as solver_lib
+import util
 
 HIDDEN_LAYERS_WIDTH = [4096, 2048, 1024]
 
@@ -59,9 +59,6 @@ def get_supervised_value_examples() -> tf.data.Dataset:
         (tf.TensorShape([20, 24]), tf.TensorShape([])))
 
 
-MODEL_PREDICTION_BATCH_SIZE = 8192
-
-
 def get_td_value_examples(model: tf.keras.Model) -> tf.data.Dataset:
     '''Returns a set of examples for a supervised value model.
 
@@ -69,11 +66,7 @@ def get_td_value_examples(model: tf.keras.Model) -> tf.data.Dataset:
     '''
     def generate_td_value_examples() -> Tuple[np.ndarray, float]:
         '''Generates training examples.'''
-        next_cube_features = np.ndarray(shape=(MODEL_PREDICTION_BATCH_SIZE, 20,
-                                               24))
-        next_cube_features_ix = 0
-
-        prev_cube_features_and_num_successors = []
+        batcher = util.ModelBatcher(1024 * 4, model, feature_shape=(20, 24))
 
         while True:
             for cube in cube_lib.scramble_cube(TRAJECTORY_LENGTH):
@@ -91,24 +84,16 @@ def get_td_value_examples(model: tf.keras.Model) -> tf.data.Dataset:
                         next_cube_features.append(next_cube.as_numpy_array())
 
                 if next_value:
-                    yield (cube_features, next_value)
+                    yield (cube_features, 1)
                     continue
 
                 next_cube_features = np.asarray(next_cube_features)
-                num_successors = next_cube_features.shape[0]
-                next_cube_features[next_cube_features_ix:next_cube_features +
-                                   num_successors, :] = next_cube_features
+                batcher.enqueue_predictions(next_cube_features,
+                                            request_id=cube_features)
 
-                prev_cube_features_and_num_successors.append(
-                    (cube_features, num_successors))
-
-                if next_value is None:
-                    next_cube_predictions = model.predict([next_cube_features])
-                    assert next_cube_predictions.shape == (
-                        12, 1), next_cube_predictions.shape
-                    next_value = 1 + np.min(next_cube_predictions)
-
-                yield (cube_features, next_value)
+                for next_cube_predictions, cube_features in (
+                        batcher.get_predictions()):
+                    yield (cube_features, 1 + np.min(next_cube_predictions))
 
     return tf.data.Dataset.from_generator(
         generate_td_value_examples, (tf.int64, tf.float32),

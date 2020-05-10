@@ -6,7 +6,7 @@ import numpy as np
 import cube as cube_lib
 import trainer
 
-NUM_EXAMPLES = 1000
+NUM_EXAMPLES = 1024 * 8 * 4
 
 
 def generate_supervised_value_examples():
@@ -26,11 +26,10 @@ def generate_supervised_value_examples():
 def generate_td_value_examples():
     '''Loops through training examples.
 
-    Results (2020/05/02): 65 examples/s on my machine.
+    Results (2020/05/02): 660 examples/s on my machine.
     '''
     model = trainer.create_model()
     examples = trainer.get_td_value_examples(model)
-    #  examples = trainer.get_supervised_value_examples()
     examples_it = iter(examples)
     begin_time = time.monotonic()
     for _ in range(NUM_EXAMPLES):
@@ -42,7 +41,7 @@ def generate_td_value_examples():
 NUM_RUNS = 1000
 
 
-def model_inference(batch_size):
+def model_inference():
     '''Runs the model.
 
     Results (2002/05/02): 8192 is the best batch size.
@@ -62,6 +61,13 @@ def model_inference(batch_size):
         168470.2 examples/s (batch_size = 8192)
         148578.4 examples/s (batch_size = 16384)
     '''
+    batch_size = 1
+    while batch_size <= 16 * 1024:
+        _model_inference_inner_loop(batch_size)
+        batch_size *= 2
+
+
+def _model_inference_inner_loop(batch_size):
     cube = cube_lib.Cube()
     features = cube.as_numpy_array()
 
@@ -79,10 +85,7 @@ def model_inference(batch_size):
 
 
 def main():
-    batch_size = 1
-    while batch_size <= 16 * 1024:
-        model_inference(batch_size)
-        batch_size *= 2
+    generate_td_value_examples()
 
 
 if __name__ == "__main__":
