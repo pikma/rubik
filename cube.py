@@ -1,13 +1,13 @@
 '''A representation of a Rubik's cube.'''
 
 import collections
+import dataclasses
 import enum
 import random
-import typing
 
 from typing import Dict, Iterable, List, Tuple
 
-import numpy as np
+import numpy as np  # type: ignore
 
 _RESET_ESCAPE_SEQUENCE = '\u001b[0m'
 
@@ -61,7 +61,8 @@ class Face(enum.Enum):
 _NUM_FACES = 6
 
 
-class Rotation(typing.NamedTuple):
+@dataclasses.dataclass
+class Rotation:
     '''A rotation of a face, that can be applied to the cube.'''
     face: Face
     is_clockwise: bool
@@ -83,6 +84,9 @@ class Rotation(typing.NamedTuple):
         for face in [Face(i) for i in range(_NUM_FACES)]:
             for is_clockwise in (False, True):
                 yield cls(face, is_clockwise)
+
+
+NUM_ROTATIONS = 12
 
 
 def _init_block_to_pos():
@@ -200,7 +204,7 @@ class Cube:
             lines.append('      ' + _color_row_to_str(row))
         return '\n'.join(lines)
 
-    def _rotate_blocks(self, from_to_rotations: Tuple[int, int, int],
+    def _rotate_blocks(self, from_to_rotations: List[Tuple[int, int, int]],
                        corners: bool):
         # We save the last position slice, and then apply the moves in reverse
         # order, so that the last move reads from the saved position slice.
@@ -230,10 +234,10 @@ class Cube:
         print('--0 1 2 3 4 5 6 7 8 9 . 1 2 3 4 5 6 7 8 9 . 1 2 3')
         print()
 
-    def _rotate_corners(self, from_to_rotations: Tuple[int, int, int]):
+    def _rotate_corners(self, from_to_rotations: List[Tuple[int, int, int]]):
         self._rotate_blocks(from_to_rotations, corners=True)
 
-    def _rotate_edges(self, from_to_rotations: Tuple[int, int, int]):
+    def _rotate_edges(self, from_to_rotations: List[Tuple[int, int, int]]):
         self._rotate_blocks(from_to_rotations, corners=False)
 
     def rotate_face(self, rotation: Rotation) -> None:
@@ -308,7 +312,7 @@ class Cube:
     def as_numpy_array(self) -> np.array:
         return self._block_to_pos.copy()
 
-    def copy(self):
+    def copy(self) -> 'Cube':
         new_cube = Cube()
         new_cube._block_to_pos = self._block_to_pos.copy()
         return new_cube

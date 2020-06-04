@@ -1,10 +1,10 @@
 '''Libraries for training models that are used to solve a Rubik's cube.'''
 
-from typing import Tuple
+from typing import Iterator, Tuple
 
-import numpy as np
-import pandas as pd
-import tensorflow as tf
+import numpy as np  # type: ignore
+import pandas as pd  # type: ignore
+import tensorflow as tf  # type: ignore
 
 import cube as cube_lib
 import solver as solver_lib
@@ -38,7 +38,7 @@ TRAJECTORY_LENGTH = 32
 BATCH_SIZE = 32
 MODEL_PATH = './models'
 
-NUM_EPOCHS = 10
+NUM_EPOCHS = 20
 NUM_STEPS_PER_EPOCH = 1000
 
 
@@ -47,7 +47,8 @@ def get_supervised_value_examples() -> tf.data.Dataset:
 
     The dataset outputs (state_features, value) tuples.
     '''
-    def generated_supervised_value_examples() -> Tuple[np.ndarray, int]:
+    def generated_supervised_value_examples(
+    ) -> Iterator[Tuple[np.ndarray, int]]:
         '''Generates training examples.'''
         while True:
             for i, cube in enumerate(
@@ -64,7 +65,7 @@ def get_td_value_examples(model: tf.keras.Model) -> tf.data.Dataset:
 
     The dataset outputs (state_features, value) tuples.
     '''
-    def generate_td_value_examples() -> Tuple[np.ndarray, float]:
+    def generate_td_value_examples() -> Iterator[Tuple[np.ndarray, float]]:
         '''Generates training examples.'''
         batcher = util.ModelBatcher(1024 * 4, model, feature_shape=(20, 24))
 
@@ -159,7 +160,6 @@ def train_td_value_model(model: tf.keras.Model) -> None:
         epoch_evaluation_df['epoch'] = epoch
         evaluation_df = evaluation_df.append(epoch_evaluation_df,
                                              ignore_index=True)
-    tf.saved_model.save(model, './models/td_value')
 
 
 def fraction_solved_greedy(model: tf.keras.Model, trajectory_length: int,
@@ -187,7 +187,7 @@ def evaluate_model(model: tf.keras.Model) -> pd.DataFrame:
             model,
             trajectory_length=trajectory_length,
             num_trials=10,
-            greedy_depth=1)
+            greedy_depth=2)
         evaluation_results = evaluation_results.append(
             {
                 'trajectory_length': trajectory_length,

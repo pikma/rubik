@@ -4,12 +4,12 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
-pylint = "*"
 yapf = "*"
 jupyter = "*"
 notebook = "*"
 matplotlib = "*"
-rope = "*"
+flake8 = "*"
+mypy = "*"
 
 [packages]
 numpy = "*"
@@ -18,4 +18,4 @@ pandas = "*"
 tensorboard = "*"
 
 [requires]
-python_version = "3.7"
+python_version = "3.8"
