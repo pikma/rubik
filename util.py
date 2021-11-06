@@ -1,4 +1,4 @@
-'''Utilites.'''
+'''Utilities.'''
 import copy
 import collections
 from dataclasses import dataclass
