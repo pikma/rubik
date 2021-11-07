@@ -4,7 +4,7 @@ import collections
 from dataclasses import dataclass
 import itertools
 
-from typing import Any, Deque, Iterator, Tuple
+from typing import Any, Deque, Iterator,Tuple
 
 import numpy as np
 import tensorflow as tf
@@ -51,7 +51,7 @@ class ModelBatcher:
     def __init__(self,
                  batch_size: int,
                  model: tf.keras.Model,
-                 feature_shape=Tuple[int],
+                 feature_shape: Tuple[int],
                  feature_dtype='float'):
         self._batch_size = batch_size
         self._model = model
